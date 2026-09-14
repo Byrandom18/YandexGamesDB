@@ -1,0 +1,78 @@
+@page "/games"
+@using YandexGamesAnalytics.Data
+@using YandexGamesAnalytics.Services
+@inject AnalyticsEngine Analytics
+
+<PageTitle>Каталог игр</PageTitle>
+
+<PageHeader Title="Игры" Lead="Поиск по названию и студии, сортировка по спросу, GQ и отзывам." />
+
+<div class="card" style="margin-bottom:14px;">
+    <div class="toolbar">
+        <input placeholder="Название или студия" @bind="query" @bind:event="oninput" style="min-width:240px;" />
+        <select @bind="category">
+            <option value="">Все жанры</option>
+            @foreach (var c in categories)
+            {
+                <option value="@c.Slug">@c.Title</option>
+            }
+        </select>
+        <select @bind="sort">
+            <option value="demand">Спрос</option>
+            <option value="gq">GQ</option>
+            <option value="reviews">Отзывы</option>
+            <option value="rating">Оценка</option>
+            <option value="new">Новые</option>
+            <option value="title">Название</option>
+        </select>
+        <button class="btn btn-primary" @onclick="Reload">Показать</button>
+    </div>
+</div>
+
+<div class="card">
+    <GameTable Games="items" />
+    <div class="pager">
+        <button class="btn btn-ghost" disabled="@(pageIndex<=1)" @onclick="Prev">Назад</button>
+        <span class="muted">стр. @pageIndex · всего @total</span>
+        <button class="btn btn-ghost" disabled="@(pageIndex * 40 >= total)" @onclick="Next">Дальше</button>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Category { get; set; }
+
+    string query = "";
+    string category = "";
+    string sort = "demand";
+    int pageIndex = 1;
+    int total;
+    List<GameListItem> items = [];
+    List<Category> categories = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(Category))
+            category = Category;
+        categories = await Analytics.GetCategoriesAsync();
+        await Reload();
+    }
+
+    async Task Reload()
+    {
+        var result = await Analytics.SearchGamesAsync(query, category, sort, pageIndex, 40);
+        items = result.Items;
+        total = result.Total;
+    }
+
+    async Task Next()
+    {
+        pageIndex++;
+        await Reload();
+    }
+
+    async Task Prev()
+    {
+        pageIndex = Math.Max(1, pageIndex - 1);
+        await Reload();
+    }
+}

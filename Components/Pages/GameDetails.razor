@@ -1,0 +1,80 @@
+@page "/games/{AppId:int}"
+@using YandexGamesAnalytics.Data
+@using YandexGamesAnalytics.Services
+@inject AnalyticsEngine Analytics
+
+<PageTitle>@(game?.Title ?? "Игра")</PageTitle>
+
+@if (game is null)
+{
+    <div class="muted">Игра не найдена в локальной базе. Сначала соберите каталог.</div>
+}
+else
+{
+    <PageHeader Title="@game.Title" Lead="@game.DeveloperName">
+        <a class="btn btn-ghost" href="@($"https://yandex.ru/games/app/{game.AppId}")" target="_blank" rel="noreferrer">Открыть на Яндекс Играх</a>
+    </PageHeader>
+
+    <div class="card hero-game">
+        @if (!string.IsNullOrWhiteSpace(game.IconUrl))
+        {
+            <img src="@AnalyticsEngine.MediaUrl(game.IconUrl, "orig")" alt="" />
+        }
+        <div>
+            <div class="tags">
+                <span class="pill accent">GQ @(game.GqRating?.ToString() ?? "—")</span>
+                <span class="pill">★ @(game.Rating?.ToString("0.0") ?? "—") / @game.RatingCount</span>
+                <span class="pill">спрос @game.DemandScore.ToString("0.0")</span>
+                @if (!string.IsNullOrWhiteSpace(game.AgeRating))
+                {
+                    <span class="pill">@game.AgeRating</span>
+                }
+                @if (game.HasPurchases) { <span class="pill">инапы</span> }
+                @if (game.HasVideo) { <span class="pill">видео</span> }
+                @if (game.CloudSave) { <span class="pill">cloud save</span> }
+                @if (game.InNewFeed) { <span class="pill good">новые</span> }
+            </div>
+            <p>@game.Description</p>
+            <div class="muted">
+                Публикация: @(game.FirstPublished?.ToLocalTime().ToString("dd.MM.yyyy") ?? "н/д")
+                · загрузка @(game.MinLoadTime?.ToString("0.0") ?? "н/д") с
+                · языки @(game.Languages ?? "н/д")
+                · ПК @(game.SupportsDesktop ? "да" : "нет"), моб. @(game.SupportsMobile ? "да" : "нет"), ТВ @(game.SupportsTv ? "да" : "нет")
+            </div>
+        </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:14px;">
+        <div class="card">
+            <h3>Жанры</h3>
+            <div class="tags">
+                @foreach (var c in game.Categories)
+                {
+                    <a class="pill" href="@($"/games?category={c.CategorySlug}")">@(c.Category?.Title ?? c.CategorySlug)</a>
+                }
+            </div>
+            <h3 style="margin-top:18px;">Теги</h3>
+            <div class="tags">
+                @foreach (var t in game.Tags)
+                {
+                    <span class="pill">@(t.Tag?.Title ?? t.TagId.ToString())</span>
+                }
+            </div>
+        </div>
+        <div class="card">
+            <h3>Оценки</h3>
+            <p>5★ @((game.Score5 ?? 0)) · 4★ @((game.Score4 ?? 0)) · 3★ @((game.Score3 ?? 0)) · 2★ @((game.Score2 ?? 0)) · 1★ @((game.Score1 ?? 0))</p>
+            <p class="muted">@game.Instruction</p>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int AppId { get; set; }
+    Game? game;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        game = await Analytics.GetGameAsync(AppId);
+    }
+}

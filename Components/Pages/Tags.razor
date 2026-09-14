@@ -1,0 +1,59 @@
+@page "/tags"
+@using YandexGamesAnalytics.Services
+@inject AnalyticsEngine Analytics
+
+<PageTitle>Теги</PageTitle>
+
+<PageHeader Title="Теги" Lead="Медианы и разброс, а не только среднее. Служебные теги вроде «бесплатные» отфильтрованы в выводах на обзоре; здесь — полный срез от 15 игр." />
+
+@if (snap is null)
+{
+    <div class="muted">Считаю теги…</div>
+}
+else
+{
+    <div class="card" style="margin-bottom:14px;">
+        <BarChart Id="tagsDemand" Horizontal="true" Color="#3dd68c"
+                  Labels="@(snap.Tags.Take(15).Select(t => t.Title))"
+                  Values="@(snap.Tags.Take(15).Select(t => t.MedianGq))" />
+    </div>
+
+    <div class="card">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Тег</th>
+                    <th>Игр</th>
+                    <th>Мед. спрос</th>
+                    <th>Мед. GQ</th>
+                    <th>p75 GQ</th>
+                    <th>Мед. отзывы</th>
+                    <th>p75 отз.</th>
+                    <th>GQ≥50</th>
+                    <th>Оценка мед.</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var t in snap.Tags.Take(80))
+                {
+                    <tr>
+                        <td>@t.Title</td>
+                        <td>@t.Games</td>
+                        <td>@t.MedianDemand.ToString("0.0")</td>
+                        <td>@t.MedianGq.ToString("0.0")</td>
+                        <td>@t.P75Gq.ToString("0.0")</td>
+                        <td>@t.MedianReviews.ToString("0")</td>
+                        <td>@t.P75Reviews.ToString("0")</td>
+                        <td>@t.ShareGq50.ToString("0")%</td>
+                        <td>@t.MedianRating.ToString("0.00")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    AnalyticsSnapshot? snap;
+    protected override async Task OnInitializedAsync() => snap = await Analytics.BuildAsync();
+}

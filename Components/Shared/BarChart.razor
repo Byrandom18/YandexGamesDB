@@ -1,0 +1,19 @@
+@using YandexGamesAnalytics.Services
+@inject IJSRuntime JS
+
+<div class="chart-box">
+    <canvas id="@Id"></canvas>
+</div>
+
+@code {
+    [Parameter] public string Id { get; set; } = "c" + Guid.NewGuid().ToString("N");
+    [Parameter] public IEnumerable<string> Labels { get; set; } = [];
+    [Parameter] public IEnumerable<double> Values { get; set; } = [];
+    [Parameter] public string Color { get; set; } = "#ffd100";
+    [Parameter] public bool Horizontal { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JS.InvokeVoidAsync("ygCharts.bar", Id, Labels.ToArray(), Values.ToArray(), Color, Horizontal);
+    }
+}

@@ -1,0 +1,468 @@
+@page "/playbook"
+@using YandexGamesAnalytics.Services
+@inject AnalyticsEngine Analytics
+
+<PageTitle>Для разработчика</PageTitle>
+
+<PageHeader Title="Для разработчика" Lead="Что делать, на кого, что проще собрать на карточке и какой прокси прибыли виден в открытом каталоге. Это не список студий и не ARPDAU.">
+    <a class="btn btn-ghost" href="genres">Жанры</a>
+</PageHeader>
+
+@if (snap is null)
+{
+    <div class="muted">Собираю рекомендации…</div>
+}
+else if (snap.Overview.Games == 0)
+{
+    <div class="card">
+        <h3>Нужен каталог</h3>
+        <p class="muted">Сначала соберите выборку на странице «Сбор данных». Рекомендации считаются по уже сохранённым карточкам, без новых запросов к Яндексу.</p>
+        <a class="btn btn-primary" href="sync">Собрать каталог</a>
+    </div>
+}
+else
+{
+    var pb = snap.Playbook;
+
+    <div class="disclaimer">
+        Прибыль, DAU и retention по чужим играм недоступны. «Прибыльность» здесь — прокси: отзывы (охват), GQ (вовлечённость), доля инапов, свежесть.
+        Слова в названиях — корреляция с уже успешными карточками, не CTR иконки. Выборка: @snap.Overview.Games игр@(string.Equals(snap.Overview.LastMode, "Sample", StringComparison.OrdinalIgnoreCase) ? ", пробный сбор (старые ID завышают пасьянсы и слова)" : "").
+    </div>
+
+    <div class="kpis">
+        <StatCard Label="Перспектива №1" Value="@(pb.TopGenres.FirstOrDefault()?.Title ?? "—")" Hint="@(pb.TopGenres.FirstOrDefault() is { } lead ? $"индекс {lead.OpportunityScore:0.0} · мед. GQ {lead.MedianGq:0.0}" : "мало данных")" />
+        <StatCard Label="Медиана GQ" Value="@snap.Overview.MedianGq.ToString("0.0")" Hint="@($"среднее {snap.Overview.AvgGq:0.0} — смотрите медиану")" />
+        <StatCard Label="Медиана отзывов" Value="@snap.Overview.MedianReviews.ToString("0")" Hint="типичный охват, не среднее хитов" />
+        <StatCard Label="Верхний квартиль" Value="@pb.Ages.Sum(a => a.Games).ToString("N0")" Hint="игр в топ-25% спроса для аудитории" />
+    </div>
+
+    <div class="grid-2">
+        <div class="card">
+            <h3>Выводы</h3>
+            @foreach (var insight in pb.Insights)
+            {
+                <div class="insight @insight.Kind">
+                    <strong>@insight.Title</strong>
+                    <div class="muted">@insight.Body</div>
+                </div>
+            }
+        </div>
+        <div class="card">
+            <h3>Топ жанров по перспективе</h3>
+            <p class="muted">Индекс: типичный успех, новички ≤12 мес., прокси инапов, простота входа — делённые на насыщенность.</p>
+            @if (pb.TopGenres.Count > 0)
+            {
+                <BarChart Id="playbookOpp" Horizontal="true" Color="#6ea8ff"
+                          Labels="@(pb.TopGenres.Select(g => g.Title))"
+                          Values="@(pb.TopGenres.Select(g => g.OpportunityScore))" />
+            }
+        </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+        <h3>1. Что делать</h3>
+        <p class="muted">Пять жанров с лучшим индексом и рабочие связки, если в ячейке достаточно игр.</p>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Жанр</th>
+                    <th>Перспектива</th>
+                    <th>Вердикт</th>
+                    <th>Мед. GQ</th>
+                    <th>Мед. отзывы</th>
+                    <th>Новички GQ</th>
+                    <th>GQ≥70</th>
+                    <th>Игр</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var g in pb.TopGenres)
+                {
+                    <tr>
+                        <td><a href="@($"/games?category={g.Key}")">@g.Title</a> <span class="pill @QuadrantClass(g.Quadrant)">@g.Quadrant</span></td>
+                        <td>@g.OpportunityScore.ToString("0.0")</td>
+                        <td>@g.Verdict</td>
+                        <td>@g.MedianGq.ToString("0.0")</td>
+                        <td>@g.MedianReviews.ToString("0")</td>
+                        <td>@(g.FreshGames >= 5 ? g.FreshMedianGq.ToString("0.0") : "н/д")</td>
+                        <td>@g.ShareGq70.ToString("0")%</td>
+                        <td>@g.Games</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+
+        @if (pb.GenreTagCombos.Count > 0 || pb.Combos.Count > 0)
+        {
+            <h3 style="margin-top:22px;">Связки</h3>
+            <div class="grid-2">
+                <div>
+                    <p class="muted">Жанр × тег (≥20 игр)</p>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Связка</th>
+                                <th>Игр</th>
+                                <th>Мед. GQ</th>
+                                <th>Мед. отзывы</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var c in pb.GenreTagCombos.Take(6))
+                            {
+                                <tr>
+                                    <td>@c.Title</td>
+                                    <td>@c.Games</td>
+                                    <td>@c.MedianGq.ToString("0.0")</td>
+                                    <td>@c.MedianReviews.ToString("0")</td>
+                                </tr>
+                            }
+                            @if (pb.GenreTagCombos.Count == 0)
+                            {
+                                <tr><td colspan="4" class="muted">Мало ячеек с 20+ играми — нужен полный сбор.</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <div>
+                    <p class="muted">Два жанра (≥12 игр)</p>
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Связка</th>
+                                <th>Игр</th>
+                                <th>Мед. GQ</th>
+                                <th>Мед. отзывы</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var c in pb.Combos.Take(6))
+                            {
+                                <tr>
+                                    <td>@c.Title</td>
+                                    <td>@c.Games</td>
+                                    <td>@c.MedianGq.ToString("0.0")</td>
+                                    <td>@c.MedianReviews.ToString("0")</td>
+                                </tr>
+                            }
+                            @if (pb.Combos.Count == 0)
+                            {
+                                <tr><td colspan="4" class="muted">Мало игр с двумя жанрами.</td></tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="grid-3" style="margin-top:14px;">
+        <div class="card">
+            <h3>2. Аудитория топ-квартиля</h3>
+            <p class="muted">Возраст, платформы и языки у игр верхних 25% спроса.</p>
+            <table class="table">
+                <thead><tr><th>Возраст</th><th>Доля</th><th>Мед. GQ</th></tr></thead>
+                <tbody>
+                    @foreach (var a in pb.Ages)
+                    {
+                        <tr>
+                            <td>@a.Label</td>
+                            <td>@a.Share.ToString("0")%</td>
+                            <td>@a.MedianGq.ToString("0.0")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="card">
+            <h3>Платформы</h3>
+            <table class="table">
+                <thead><tr><th>Срез</th><th>Доля</th><th>Мед. GQ</th></tr></thead>
+                <tbody>
+                    @foreach (var a in pb.Platforms)
+                    {
+                        <tr>
+                            <td>@a.Label</td>
+                            <td>@a.Share.ToString("0")%</td>
+                            <td>@a.MedianGq.ToString("0.0")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="card">
+            <h3>Языки карточки</h3>
+            <table class="table">
+                <thead><tr><th>Набор</th><th>Доля</th><th>Мед. GQ</th></tr></thead>
+                <tbody>
+                    @foreach (var a in pb.Languages)
+                    {
+                        <tr>
+                            <td>@a.Label</td>
+                            <td>@a.Share.ToString("0")%</td>
+                            <td>@a.MedianGq.ToString("0.0")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:14px;">
+        <div class="card">
+            <h3>3. Что проще — чеклист витрины</h3>
+            <p class="muted">Паттерны с положительной медианой ΔGQ при разумной выборке.</p>
+            <ul class="checklist">
+                @foreach (var item in pb.Checklist)
+                {
+                    <li>
+                        <span class="@(item.Recommended ? "check-yes" : "check-no")">@(item.Recommended ? "●" : "○")</span>
+                        <div>
+                            <strong>@item.Title</strong>
+                            <div class="muted">@item.Detail</div>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </div>
+        <div class="card">
+            <h3>Паттерны по медиане ΔGQ</h3>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Фактор</th>
+                        <th>Δ мед. GQ</th>
+                        <th>Мед. A / B</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var f in pb.EasyWins)
+                    {
+                        <tr>
+                            <td>@f.Name</td>
+                            <td class="@(f.MedianGqDelta >= 0 ? "delta-pos" : "delta-neg")">@f.MedianGqDelta.ToString("+0.0;-0.0")</td>
+                            <td>@f.WithMedianGq.ToString("0.0") / @f.WithoutMedianGq.ToString("0.0")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:14px;">
+        <div class="card">
+            <h3>4. Прокси прибыли: инапы × охват</h3>
+            <p class="muted">Не ARPDAU. Доля покупок и медиана отзывов у игр с инапами.</p>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Жанр</th>
+                        <th>Инапы</th>
+                        <th>Мед. отзывы IAP</th>
+                        <th>Мед. GQ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var g in pb.Monetization)
+                    {
+                        <tr>
+                            <td>@g.Title</td>
+                            <td>@g.PurchaseShare.ToString("0")%</td>
+                            <td>@g.IapMedianReviews.ToString("0")</td>
+                            <td>@g.MedianGq.ToString("0.0")</td>
+                        </tr>
+                    }
+                    @if (pb.Monetization.Count == 0)
+                    {
+                        <tr><td colspan="4" class="muted">Нет жанров с заметной долей инапов.</td></tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="card">
+            <h3>Высокий GQ без покупок</h3>
+            <p class="muted">Скорее рекламная вовлечённость, не магазин внутри игры.</p>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Жанр</th>
+                        <th>Мед. GQ</th>
+                        <th>Инапы</th>
+                        <th>Мед. отзывы</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var g in pb.Engagement)
+                    {
+                        <tr>
+                            <td>@g.Title</td>
+                            <td>@g.MedianGq.ToString("0.0")</td>
+                            <td>@g.PurchaseShare.ToString("0")%</td>
+                            <td>@g.MedianReviews.ToString("0")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+        <h3>5. Как назвать и описать</h3>
+        <p class="muted">Уни- и биграммы названий: lift = доля в топ-25% спроса / доля в каталоге. Минимум 12 игр на слово. Описания — вторым слоем.</p>
+        <div class="grid-2">
+            <div>
+                <p class="muted">Названия</p>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Слово</th>
+                            <th>Игр</th>
+                            <th>Lift</th>
+                            <th>Мед. GQ</th>
+                            <th>Мед. отзывы</th>
+                            <th>Примеры</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var w in pb.TitleWords.Take(12))
+                        {
+                            <tr>
+                                <td>@w.Phrase</td>
+                                <td>@w.Games</td>
+                                <td>@w.Lift.ToString("0.00")</td>
+                                <td>@w.MedianGq.ToString("0.0")</td>
+                                <td>@w.MedianReviews.ToString("0")</td>
+                                <td class="muted">@string.Join(" · ", w.Examples)</td>
+                            </tr>
+                        }
+                        @if (pb.TitleWords.Count == 0)
+                        {
+                            <tr><td colspan="6" class="muted">Мало повторяющихся слов — нужен больший каталог.</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div>
+                <p class="muted">Описания</p>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Слово</th>
+                            <th>Игр</th>
+                            <th>Lift</th>
+                            <th>Мед. GQ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var w in snap.DescriptionWords.Take(12))
+                        {
+                            <tr>
+                                <td>@w.Phrase</td>
+                                <td>@w.Games</td>
+                                <td>@w.Lift.ToString("0.00")</td>
+                                <td>@w.MedianGq.ToString("0.0")</td>
+                            </tr>
+                        }
+                        @if (snap.DescriptionWords.Count == 0)
+                        {
+                            <tr><td colspan="4" class="muted">Недостаточно устойчивых н-грамм в описаниях.</td></tr>
+                        }
+                    </tbody>
+                </table>
+
+                <h3 style="margin-top:22px;">Длина названия</h3>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Длина</th>
+                            <th>Игр</th>
+                            <th>Мед. GQ</th>
+                            <th>Мед. отзывы</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var b in pb.TitleLengths)
+                        {
+                            <tr>
+                                <td>@b.Label</td>
+                                <td>@b.Games</td>
+                                <td>@b.MedianGq.ToString("0.0")</td>
+                                <td>@b.MedianReviews.ToString("0")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+        <h3>6. Риски и матрица перспектива × конкуренция</h3>
+        <p class="muted">Звезда — типичный успех и новички держатся. Ниша — сильная медиана при меньшем числе игр. Перегрев — хиты старые, новичкам тесно. Болото — слабый типичный GQ при насыщенности.</p>
+        <div class="matrix">
+            @foreach (var cell in new[] { "звезда", "ниша", "перегрев", "болото" })
+            {
+                var items = snap.Genres.Where(g => g.Games >= 8 && g.Quadrant == cell).OrderByDescending(g => g.OpportunityScore).Take(6).ToList();
+                <div class="matrix-cell">
+                    <div class="matrix-label"><span class="pill @QuadrantClass(cell)">@cell</span></div>
+                    @if (items.Count == 0)
+                    {
+                        <div class="muted">Нет жанров в этой клетке на текущей выборке</div>
+                    }
+                    else
+                    {
+                        <ul class="matrix-list">
+                            @foreach (var g in items)
+                            {
+                                <li>
+                                    <a href="@($"/games?category={g.Key}")">@g.Title</a>
+                                    <span class="muted">@g.Games игр · мед. GQ @g.MedianGq.ToString("0.0") · 1★ @g.OneStarShare.ToString("0.0")%</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            }
+        </div>
+
+        @if (pb.RiskyGenres.Count > 0)
+        {
+            <h3 style="margin-top:22px;">Жанры с высокой долей 1★</h3>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Жанр</th>
+                        <th>Доля 1★</th>
+                        <th>Мед. GQ</th>
+                        <th>Игр</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var g in pb.RiskyGenres)
+                    {
+                        <tr>
+                            <td>@g.Title</td>
+                            <td class="delta-neg">@g.OneStarShare.ToString("0.0")%</td>
+                            <td>@g.MedianGq.ToString("0.0")</td>
+                            <td>@g.Games</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </div>
+}
+
+@code {
+    AnalyticsSnapshot? snap;
+
+    protected override async Task OnInitializedAsync() => snap = await Analytics.BuildAsync();
+
+    static string QuadrantClass(string quadrant) => quadrant switch
+    {
+        "звезда" => "star",
+        "ниша" => "good",
+        "перегрев" => "warn",
+        _ => "bad"
+    };
+}

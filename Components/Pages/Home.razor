@@ -1,0 +1,71 @@
+﻿@page "/"
+@using YandexGamesAnalytics.Services
+@inject AnalyticsEngine Analytics
+
+<PageTitle>Обзор каталога</PageTitle>
+
+<PageHeader Title="Спрос в Яндекс Играх" Lead="Какие жанры, теги и типы карточек набирают рейтинг платформы, отзывы и оценки игроков. Смотрите медианы — среднее раздувают хиты.">
+    <a class="btn btn-primary" href="playbook">Для разработчика</a>
+</PageHeader>
+
+@if (snap is null)
+{
+    <div class="muted">Считаю метрики…</div>
+}
+else if (snap.Overview.Games == 0)
+{
+    <div class="card">
+        <h3>Данных пока нет</h3>
+        <p class="muted">Публичный каталог Яндекс Игр собирается в локальную базу: жанры, теги, GQ, отзывы, покупки, платформы, дата публикации. Затем приложение считает спрос и факторы.</p>
+        <a class="btn btn-primary" href="sync">Запустить пробный сбор</a>
+    </div>
+}
+else
+{
+    <div class="kpis">
+        <StatCard Label="Игры" Value="@snap.Overview.Games.ToString("N0")" Hint="@(snap.Overview.Enriched + " с полной карточкой")" />
+        <StatCard Label="Медиана GQ" Value="@snap.Overview.MedianGq.ToString("0.0")" Hint="@($"среднее {snap.Overview.AvgGq:0.0} · вовлечённость 0–100")" />
+        <StatCard Label="Оценка игроков" Value="@snap.Overview.AvgRating.ToString("0.00")" Hint="По публичным отзывам" />
+        <StatCard Label="Студии" Value="@snap.Overview.Developers.ToString("N0")" Hint="@(snap.Overview.WithPurchases + " с инапами")" />
+    </div>
+
+    <div class="grid-2">
+        <div class="card">
+            <h3>Жанры по перспективе</h3>
+            <p class="muted">Индекс: медиана успеха, новички, прокси инапов / конкуренция</p>
+            <BarChart Id="genresDemand" Horizontal="true"
+                      Labels="@(snap.Genres.Take(12).Select(g => g.Title))"
+                      Values="@(snap.Genres.Take(12).Select(g => g.OpportunityScore))" />
+        </div>
+        <div class="card">
+            <h3>Выводы</h3>
+            @foreach (var insight in snap.Insights.Take(4))
+            {
+                <div class="insight @insight.Kind">
+                    <strong>@insight.Title</strong>
+                    <div class="muted">@insight.Body</div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:14px;">
+        <div class="card">
+            <h3>Топ по спросу</h3>
+            <GameTable Games="snap.TopDemand" />
+        </div>
+        <div class="card">
+            <h3>Топ по отзывам</h3>
+            <GameTable Games="snap.TopReviews" />
+        </div>
+    </div>
+}
+
+@code {
+    AnalyticsSnapshot? snap;
+
+    protected override async Task OnInitializedAsync()
+    {
+        snap = await Analytics.BuildAsync();
+    }
+}

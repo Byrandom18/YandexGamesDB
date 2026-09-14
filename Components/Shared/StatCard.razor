@@ -1,0 +1,16 @@
+@using YandexGamesAnalytics.Services
+
+<div class="card kpi">
+    <div class="label">@Label</div>
+    <div class="value">@Value</div>
+    @if (!string.IsNullOrWhiteSpace(Hint))
+    {
+        <div class="hint">@Hint</div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Label { get; set; } = "";
+    [Parameter] public string Value { get; set; } = "";
+    [Parameter] public string? Hint { get; set; }
+}

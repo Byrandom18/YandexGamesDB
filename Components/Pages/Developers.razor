@@ -1,0 +1,45 @@
+@page "/developers"
+@using YandexGamesAnalytics.Services
+@inject AnalyticsEngine Analytics
+
+<PageTitle>Студии</PageTitle>
+
+<PageHeader Title="Студии" Lead="Кто держит портфель с высоким средним спросом в собранной выборке." />
+
+@if (snap is null)
+{
+    <div class="muted">Считаю студии…</div>
+}
+else
+{
+    <div class="card">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Студия</th>
+                    <th>Игр</th>
+                    <th>Спрос</th>
+                    <th>GQ</th>
+                    <th>Отзывы суммарно</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var d in snap.Developers)
+                {
+                    <tr>
+                        <td>@d.Name</td>
+                        <td>@d.Games</td>
+                        <td>@d.AvgDemand.ToString("0.0")</td>
+                        <td>@d.AvgGq.ToString("0.0")</td>
+                        <td>@d.TotalReviews.ToString("N0")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    AnalyticsSnapshot? snap;
+    protected override async Task OnInitializedAsync() => snap = await Analytics.BuildAsync();
+}

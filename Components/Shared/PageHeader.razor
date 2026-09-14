@@ -1,0 +1,20 @@
+@using YandexGamesAnalytics.Services
+
+<div class="page-head">
+    <div>
+        <div class="muted">@Eyebrow</div>
+        <h1>@Title</h1>
+        @if (!string.IsNullOrWhiteSpace(Lead))
+        {
+            <div class="lede">@Lead</div>
+        }
+    </div>
+    <div>@ChildContent</div>
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string Eyebrow { get; set; } = "Яндекс Игры";
+    [Parameter] public string? Lead { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

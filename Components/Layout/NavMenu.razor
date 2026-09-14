@@ -1,0 +1,48 @@
+﻿@using YandexGamesAnalytics.Services
+@inject AnalyticsEngine Analytics
+@inject SyncCoordinator Coordinator
+
+<div class="nav">
+    <div class="brand">
+        <div class="brand-mark">YG</div>
+        <div>
+            <strong>Yandex Games</strong>
+            <small>Аналитика каталога</small>
+        </div>
+    </div>
+
+    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Обзор</NavLink>
+    <NavLink class="nav-link" href="playbook">Для разработчика</NavLink>
+    <NavLink class="nav-link" href="genres">Жанры</NavLink>
+    <NavLink class="nav-link" href="tags">Теги</NavLink>
+    <NavLink class="nav-link" href="factors">Что влияет</NavLink>
+    <NavLink class="nav-link" href="games">Игры</NavLink>
+    <NavLink class="nav-link" href="developers">Студии</NavLink>
+    <NavLink class="nav-link" href="sync">Сбор данных</NavLink>
+
+    <div style="margin-top:28px; padding:12px; color:var(--muted); font-size:12px;">
+        @if (Coordinator.Progress.IsRunning)
+        {
+            <div>Сбор: @Coordinator.Progress.Phase</div>
+            <div class="progress" style="margin-top:8px;"><span style="width:@Coordinator.Progress.Percent.ToString("0")%"></span></div>
+        }
+        else if (games > 0)
+        {
+            <div>В базе @games игр</div>
+        }
+        else
+        {
+            <div>Каталог ещё не загружен</div>
+        }
+    </div>
+</div>
+
+@code {
+    int games;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var overview = await Analytics.GetLiteOverviewAsync();
+        games = overview.Games;
+    }
+}

@@ -1,0 +1,40 @@
+@using YandexGamesAnalytics.Services
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Игра</th>
+            <th>GQ</th>
+            <th>Оценка</th>
+            <th>Отзывы</th>
+            <th>Спрос</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var game in Games)
+        {
+            <tr>
+                <td>
+                    <a class="game-cell" href="@($"/games/{game.AppId}")">
+                        @if (!string.IsNullOrWhiteSpace(game.IconUrl))
+                        {
+                            <img src="@game.IconUrl" alt="" />
+                        }
+                        <span>
+                            <strong>@game.Title</strong>
+                            <div class="muted">@game.DeveloperName</div>
+                        </span>
+                    </a>
+                </td>
+                <td>@(game.GqRating?.ToString() ?? "—")</td>
+                <td>@(game.Rating?.ToString("0.0") ?? "—")</td>
+                <td>@game.RatingCount</td>
+                <td>@game.DemandScore.ToString("0.0")</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@code {
+    [Parameter] public IEnumerable<GameListItem> Games { get; set; } = [];
+}

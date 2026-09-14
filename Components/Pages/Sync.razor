@@ -1,0 +1,75 @@
+@page "/sync"
+@using YandexGamesAnalytics.Services
+@inject CatalogSyncService SyncService
+@inject SyncCoordinator Coordinator
+@inject AnalyticsEngine Analytics
+
+<PageTitle>Сбор данных</PageTitle>
+
+<PageHeader Title="Сбор каталога" Lead="Приложение ходит в публичный каталог yandex.ru/games: список игр, жанры, теги и подробные карточки. Метрики консоли (DAU, ARPDAU, retention) для чужих игр закрыты." />
+
+<div class="grid-2">
+    <div class="card">
+        <h3>Запуск</h3>
+        <p class="muted">Пробный сбор: 4 страницы каталога (~480 игр) + топ каждого жанра. Полный: весь каталог, это несколько минут и тысячи запросов.</p>
+        <div class="toolbar">
+            <button class="btn btn-primary" disabled="@Coordinator.Progress.IsRunning" @onclick="() => Start(SyncMode.Sample)">Пробный сбор</button>
+            <button class="btn btn-ghost" disabled="@Coordinator.Progress.IsRunning" @onclick="() => Start(SyncMode.Full)">Полный каталог</button>
+            <button class="btn btn-ghost" disabled="@(!Coordinator.Progress.IsRunning)" @onclick="Stop">Стоп</button>
+        </div>
+        <div style="margin-top:18px;">
+            <div>@Coordinator.Progress.Phase — @Coordinator.Progress.Message</div>
+            <div class="progress" style="margin-top:10px;">
+                <span style="width:@Coordinator.Progress.Percent.ToString("0")%"></span>
+            </div>
+            @if (Coordinator.Progress.Error is not null)
+            {
+                <p class="delta-neg">@Coordinator.Progress.Error</p>
+            }
+        </div>
+    </div>
+    <div class="card">
+        <h3>Что сохраняется</h3>
+        <ul class="muted">
+            <li>Название, студия, жанры, теги, возраст</li>
+            <li>GQ, оценка игроков, число отзывов, распределение звёзд</li>
+            <li>Дата публикации, видео, скриншоты, инапы, лидерборды, cloud save</li>
+            <li>Платформы, языки, время загрузки, позиция в жанре</li>
+        </ul>
+        <p class="muted">В базе сейчас @(overview?.Games ?? 0) игр, подробно @(overview?.Enriched ?? 0). Последний сбор: @(overview?.LastSync?.ToString("g") ?? "ещё не было").</p>
+    </div>
+</div>
+
+@code {
+    OverviewStats? overview;
+    int pollId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        overview = await Analytics.GetLiteOverviewAsync();
+        if (Coordinator.Progress.IsRunning)
+            _ = PollAsync();
+    }
+
+    void Start(SyncMode mode)
+    {
+        SyncService.Start(mode);
+        _ = PollAsync();
+    }
+
+    void Stop() => SyncService.Cancel();
+
+    async Task PollAsync()
+    {
+        var id = ++pollId;
+        while (Coordinator.Progress.IsRunning && id == pollId)
+        {
+            await InvokeAsync(StateHasChanged);
+            await Task.Delay(800);
+            overview = await Analytics.GetLiteOverviewAsync();
+        }
+
+        overview = await Analytics.GetLiteOverviewAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+}

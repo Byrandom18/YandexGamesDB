@@ -1,0 +1,86 @@
+@page "/factors"
+@using YandexGamesAnalytics.Services
+@inject AnalyticsEngine Analytics
+
+<PageTitle>Что влияет на показатели</PageTitle>
+
+<PageHeader Title="От чего зависят показатели" Lead="Сравнение групп по медиане GQ — среднее раздувают хиты. Это корреляции по открытому каталогу, не метрики консоли разработчика." />
+
+@if (snap is null)
+{
+    <div class="muted">Считаю факторы…</div>
+}
+else
+{
+    <div class="grid-2">
+        <div class="card">
+            <h3>Наблюдения</h3>
+            @foreach (var insight in snap.Insights)
+            {
+                <div class="insight @insight.Kind">
+                    <strong>@insight.Title</strong>
+                    <div class="muted">@insight.Body</div>
+                </div>
+            }
+        </div>
+        <div class="card">
+            <h3>Корреляции Пирсона</h3>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Пара</th>
+                        <th>r</th>
+                        <th>N</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in snap.Correlations)
+                    {
+                        <tr>
+                            <td>@c.Feature → @c.Target</td>
+                            <td class="@(c.Pearson >= 0 ? "delta-pos" : "delta-neg")">@c.Pearson.ToString("+0.00;-0.00")</td>
+                            <td>@c.N</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+        <h3>Факторы карточки</h3>
+        <p class="muted">Δ мед. GQ — разница медиан; Δ ср. GQ оставлена, чтобы видеть, где хвост врёт (например cloud save).</p>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Фактор</th>
+                    <th>Группа A</th>
+                    <th>Группа B</th>
+                    <th>Δ мед. GQ</th>
+                    <th>Δ ср. GQ</th>
+                    <th>Мед. отзывы A / B</th>
+                    <th>Оценка A / B</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var f in snap.Factors.OrderByDescending(x => Math.Abs(x.MedianGqDelta)))
+                {
+                    <tr>
+                        <td>@f.Name</td>
+                        <td>@f.WithLabel (@f.WithCount)</td>
+                        <td>@f.WithoutLabel (@f.WithoutCount)</td>
+                        <td class="@(f.MedianGqDelta >= 0 ? "delta-pos" : "delta-neg")">@f.MedianGqDelta.ToString("+0.0;-0.0")</td>
+                        <td class="muted">@f.GqDelta.ToString("+0.0;-0.0")</td>
+                        <td>@f.WithMedianReviews.ToString("0") / @f.WithoutMedianReviews.ToString("0")</td>
+                        <td>@f.WithAvgRating.ToString("0.00") / @f.WithoutAvgRating.ToString("0.00")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    AnalyticsSnapshot? snap;
+    protected override async Task OnInitializedAsync() => snap = await Analytics.BuildAsync();
+}

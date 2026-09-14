@@ -1,0 +1,152 @@
+@page "/genres"
+@using YandexGamesAnalytics.Services
+@inject AnalyticsEngine Analytics
+
+<PageTitle>Жанры</PageTitle>
+
+<PageHeader Title="Жанры и типы" Lead="Медианы и перцентили, индекс перспективы и фильтр по возрасту игры. Среднее по GQ легко раздувают хиты." />
+
+@if (snap is null)
+{
+    <div class="muted">Считаю срезы…</div>
+}
+else
+{
+    var rows = VisibleGenres().ToList();
+
+    <div class="card" style="margin-bottom:14px;">
+        <div class="toolbar">
+            <label class="muted">Сортировка
+                <select @bind="sort" @bind:after="Refresh">
+                    <option value="opp">Перспектива</option>
+                    <option value="demand">Спрос (средний)</option>
+                    <option value="gq">Медиана GQ</option>
+                    <option value="reviews">Медиана отзывов</option>
+                    <option value="games">Число игр</option>
+                </select>
+            </label>
+            <label class="muted">Возраст игр
+                <select @bind="age" @bind:after="Refresh">
+                    <option value="all">Все</option>
+                    <option value="fresh">До 12 месяцев</option>
+                </select>
+            </label>
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom:14px;">
+        <BarChart Id="genreGames" Color="#6ea8ff"
+                  Labels="@(rows.Take(16).Select(g => g.Title))"
+                  Values="@(rows.Take(16).Select(g => age == "fresh" ? g.FreshMedianGq : g.OpportunityScore))" />
+    </div>
+
+    <div class="card">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Жанр</th>
+                    <th>Игр</th>
+                    <th>Перспектива</th>
+                    <th>Вердикт</th>
+                    <th>Мед. GQ</th>
+                    <th>p25–p75</th>
+                    <th>Мед. отзывы</th>
+                    <th>p75 отз.</th>
+                    <th>GQ≥70</th>
+                    <th>Новички</th>
+                    <th>1★</th>
+                    <th>Инапы</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var g in rows)
+                {
+                    <tr>
+                        <td>
+                            <a href="@($"/games?category={g.Key}")">@g.Title</a>
+                            <span class="pill @QuadrantClass(g.Quadrant)">@g.Quadrant</span>
+                        </td>
+                        <td>@(age == "fresh" ? g.FreshGames : g.Games)</td>
+                        <td>@g.OpportunityScore.ToString("0.0")</td>
+                        <td>@g.Verdict</td>
+                        <td>@((age == "fresh" ? g.FreshMedianGq : g.MedianGq).ToString("0.0"))</td>
+                        <td class="muted">@g.P25Gq.ToString("0")–@g.P75Gq.ToString("0")</td>
+                        <td>@g.MedianReviews.ToString("0")</td>
+                        <td>@g.P75Reviews.ToString("0")</td>
+                        <td>@g.ShareGq70.ToString("0")%</td>
+                        <td>@(g.FreshGames >= 5 ? $"{g.FreshMedianGq:0.0} ({g.FreshGames})" : "—")</td>
+                        <td>@g.OneStarShare.ToString("0.0")%</td>
+                        <td>@g.PurchaseShare.ToString("0")%</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+        <h3>Матрица перспектива × конкуренция</h3>
+        <p class="muted">Оси: типичный успех (медиана GQ относительно других жанров) и число игр. Перегрев — сильная медиана за счёт старожилов, новички слабее.</p>
+        <div class="matrix">
+            @foreach (var cell in new[] { "звезда", "ниша", "перегрев", "болото" })
+            {
+                var items = snap.Genres.Where(g => g.Games >= 8 && g.Quadrant == cell).OrderByDescending(g => g.OpportunityScore).Take(8).ToList();
+                <div class="matrix-cell">
+                    <div class="matrix-label"><span class="pill @QuadrantClass(cell)">@cell</span></div>
+                    @if (items.Count == 0)
+                    {
+                        <div class="muted">Нет жанров в этой клетке на текущей выборке</div>
+                    }
+                    else
+                    {
+                        <ul class="matrix-list">
+                            @foreach (var g in items)
+                            {
+                                <li>
+                                    <a href="@($"/games?category={g.Key}")">@g.Title</a>
+                                    <span class="muted">@g.Games · мед. GQ @g.MedianGq.ToString("0.0") · индекс @g.OpportunityScore.ToString("0")</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    AnalyticsSnapshot? snap;
+    string sort = "opp";
+    string age = "all";
+
+    protected override async Task OnInitializedAsync() => snap = await Analytics.BuildAsync();
+
+    void Refresh() { }
+
+    IEnumerable<GroupStats> VisibleGenres()
+    {
+        if (snap is null)
+            return [];
+
+        IEnumerable<GroupStats> q = snap.Genres;
+        if (age == "fresh")
+            q = q.Where(g => g.FreshGames >= 5);
+
+        return sort switch
+        {
+            "demand" => q.OrderByDescending(g => age == "fresh" ? g.FreshMedianDemand : g.AvgDemand),
+            "gq" => q.OrderByDescending(g => age == "fresh" ? g.FreshMedianGq : g.MedianGq),
+            "reviews" => q.OrderByDescending(g => g.MedianReviews),
+            "games" => q.OrderByDescending(g => age == "fresh" ? g.FreshGames : g.Games),
+            _ => q.OrderByDescending(g => g.OpportunityScore)
+        };
+    }
+
+    static string QuadrantClass(string quadrant) => quadrant switch
+    {
+        "звезда" => "star",
+        "ниша" => "good",
+        "перегрев" => "warn",
+        _ => "bad"
+    };
+}
