@@ -134,6 +134,7 @@ public class AnalyticsEngine(IDbContextFactory<AppDbContext> dbFactory)
 
         var groups = games
             .SelectMany(g => g.Categories.Select(c => (Game: g, Cat: c)))
+            .Where(x => CatalogConstants.IncludeInGenreAnalytics(x.Cat.CategorySlug))
             .GroupBy(x => x.Cat.CategorySlug)
             .Select(g => ToGroup(
                 g.Key,
@@ -151,7 +152,7 @@ public class AnalyticsEngine(IDbContextFactory<AppDbContext> dbFactory)
     {
         return games
             .SelectMany(g => g.Tags.Select(t => (Game: g, Tag: t.Tag)))
-            .Where(x => x.Tag is not null)
+            .Where(x => x.Tag is not null && !IsGenericTag(x.Tag.Title))
             .GroupBy(x => x.Tag!.Id)
             .Select(g => ToGroup(
                 g.Key.ToString(),
@@ -405,6 +406,7 @@ public class AnalyticsEngine(IDbContextFactory<AppDbContext> dbFactory)
         foreach (var game in games)
         {
             var cats = game.Categories
+                .Where(c => CatalogConstants.IncludeInGenreAnalytics(c.CategorySlug))
                 .Select(c => (Slug: c.CategorySlug, Title: c.Category?.Title ?? CatalogConstants.TitleFor(c.CategorySlug)))
                 .DistinctBy(c => c.Slug)
                 .OrderBy(c => c.Slug, StringComparer.Ordinal)
@@ -435,7 +437,7 @@ public class AnalyticsEngine(IDbContextFactory<AppDbContext> dbFactory)
         var buckets = new Dictionary<(string Genre, int Tag), (string GenreTitle, string TagTitle, List<Game> Games)>();
         foreach (var game in games)
         {
-            foreach (var cat in game.Categories)
+            foreach (var cat in game.Categories.Where(c => CatalogConstants.IncludeInGenreAnalytics(c.CategorySlug)))
             {
                 var genreTitle = cat.Category?.Title ?? CatalogConstants.TitleFor(cat.CategorySlug);
                 foreach (var tagLink in game.Tags)
@@ -852,7 +854,7 @@ public class AnalyticsEngine(IDbContextFactory<AppDbContext> dbFactory)
         string[] generic =
         [
             "бесплатные", "браузерные", "без скачивания", "мобильные", "без регистрации", "десктоп",
-            "для компьютера", "high quality", "с оценками игроков"
+            "для компьютера", "high quality", "с оценками игроков", "рекомендованные", "recommended"
         ];
         return generic.Any(g => title.Contains(g, StringComparison.OrdinalIgnoreCase));
     }
@@ -882,7 +884,9 @@ public class AnalyticsEngine(IDbContextFactory<AppDbContext> dbFactory)
             HasPurchases = g.HasPurchases,
             HasVideo = g.HasVideo,
             AgeRating = g.AgeRating,
-            Categories = string.Join(", ", g.Categories.Select(c => c.Category?.Title ?? CatalogConstants.TitleFor(c.CategorySlug)))
+            Categories = string.Join(", ", g.Categories
+                .Where(c => CatalogConstants.IncludeInGenreAnalytics(c.CategorySlug))
+                .Select(c => c.Category?.Title ?? CatalogConstants.TitleFor(c.CategorySlug)))
         }).ToList();
     }
 

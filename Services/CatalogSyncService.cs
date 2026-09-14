@@ -321,6 +321,8 @@ public class CatalogSyncService(
             foreach (var (id, slugHint) in dto.Categories)
             {
                 var slug = lookup.EnsureCategory(db, id, slugHint);
+                if (slug is null)
+                    continue;
                 if (!seenCats.Add((game.AppId, slug)))
                     continue;
                 db.GameCategories.Add(new GameCategory { AppId = game.AppId, CategorySlug = slug });
@@ -461,12 +463,14 @@ public class CatalogSyncService(
             return lookup;
         }
 
-        public string EnsureCategory(AppDbContext db, int yandexId, string? slugHint)
+        public string? EnsureCategory(AppDbContext db, int yandexId, string? slugHint)
         {
             if (_slugByYandexId.TryGetValue(yandexId, out var known))
                 return known;
 
-            var slug = !string.IsNullOrWhiteSpace(slugHint) ? slugHint! : $"id-{yandexId}";
+            var slug = slugHint?.Trim();
+            if (string.IsNullOrWhiteSpace(slug) || slug.StartsWith("id-", StringComparison.OrdinalIgnoreCase))
+                return null;
             if (_bySlug.TryGetValue(slug, out var existing))
             {
                 if (existing.YandexId != yandexId)

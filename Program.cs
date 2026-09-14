@@ -32,6 +32,8 @@ await using (var db = await app.Services.GetRequiredService<IDbContextFactory<Ap
 {
     await db.Database.EnsureCreatedAsync();
     await db.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS IX_Games_Enriched ON Games (Enriched);");
+    await db.Database.ExecuteSqlRawAsync("DELETE FROM GameCategories WHERE CategorySlug LIKE 'id-%';");
+    await db.Database.ExecuteSqlRawAsync("DELETE FROM Categories WHERE Slug LIKE 'id-%';");
 }
 
 if (!app.Environment.IsDevelopment())

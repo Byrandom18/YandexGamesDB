@@ -354,8 +354,9 @@ public class YandexCatalogClient(HttpClient http, ILogger<YandexCatalogClient> l
 
         var ids = ReadIntArray(obj["categoryIDs"]);
         var names = ReadStringArray(obj["categoriesNames"]);
-        for (var i = 0; i < ids.Count; i++)
-            dto.Categories.Add((ids[i], i < names.Count ? names[i] : null));
+        var paired = Math.Min(ids.Count, names.Count);
+        for (var i = 0; i < paired; i++)
+            dto.Categories.Add((ids[i], names[i]));
 
         dto.TagIds = ReadIntArray(obj["tagIDs"]);
         return dto;

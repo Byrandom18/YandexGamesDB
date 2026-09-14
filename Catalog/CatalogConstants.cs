@@ -52,4 +52,13 @@ public static class CatalogConstants
 
         return slug.Replace('_', ' ');
     }
+
+    public static bool IncludeInGenreAnalytics(string slug)
+    {
+        if (string.IsNullOrWhiteSpace(slug))
+            return false;
+        if (slug.StartsWith("id-", StringComparison.OrdinalIgnoreCase))
+            return false;
+        return slug is not "new" and not "popular";
+    }
 }
