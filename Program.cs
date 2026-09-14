@@ -13,7 +13,8 @@ builder.Services.AddDbContextFactory<AppDbContext>(options =>
 {
     var path = Path.Combine(builder.Environment.ContentRootPath, "data");
     Directory.CreateDirectory(path);
-    options.UseSqlite($"Data Source={Path.Combine(path, "catalog.db")}");
+    options.UseSqlite($"Data Source={Path.Combine(path, "catalog.db")};Cache=Shared");
+    options.AddInterceptors(new SqlitePragmaInterceptor());
 });
 
 builder.Services.AddHttpClient("yandex-games", YandexCatalogClient.Configure);
@@ -30,6 +31,7 @@ var app = builder.Build();
 await using (var db = await app.Services.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync())
 {
     await db.Database.EnsureCreatedAsync();
+    await db.Database.ExecuteSqlRawAsync("CREATE INDEX IF NOT EXISTS IX_Games_Enriched ON Games (Enriched);");
 }
 
 if (!app.Environment.IsDevelopment())

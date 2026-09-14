@@ -11,7 +11,7 @@
 <div class="grid-2">
     <div class="card">
         <h3>Запуск</h3>
-        <p class="muted">Пробный сбор: 4 страницы каталога (~480 игр) + топ каждого жанра. Полный: весь каталог, это несколько минут и тысячи запросов.</p>
+        <p class="muted">Пробный сбор: 4 страницы каталога (~480 игр) + топ каждого жанра. Полный: весь каталог. Повторный запуск <strong>не перекачивает</strong> уже сохранённые подробные карточки — докачивает только оставшиеся.</p>
         <div class="toolbar">
             <button class="btn btn-primary" disabled="@Coordinator.Progress.IsRunning" @onclick="() => Start(SyncMode.Sample)">Пробный сбор</button>
             <button class="btn btn-ghost" disabled="@Coordinator.Progress.IsRunning" @onclick="() => Start(SyncMode.Full)">Полный каталог</button>
