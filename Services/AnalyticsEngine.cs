@@ -4,7 +4,7 @@ using YandexGamesAnalytics.Data;
 
 namespace YandexGamesAnalytics.Services;
 
-public class AnalyticsEngine(IDbContextFactory<AppDbContext> dbFactory)
+public class AnalyticsEngine(IDbContextFactory<AppDbContext> dbFactory, AnalyticsCache cache)
 {
     public async Task<OverviewStats> GetLiteOverviewAsync(CancellationToken ct = default)
     {
@@ -19,10 +19,14 @@ public class AnalyticsEngine(IDbContextFactory<AppDbContext> dbFactory)
         };
     }
 
-    public async Task<AnalyticsSnapshot> BuildAsync(CancellationToken ct = default)
+    public Task<AnalyticsSnapshot> BuildAsync(CancellationToken ct = default) =>
+        cache.GetOrBuildAsync(BuildUncachedAsync, ct);
+
+    private async Task<AnalyticsSnapshot> BuildUncachedAsync(CancellationToken ct)
     {
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var games = await db.Games.AsNoTracking()
+            .AsSplitQuery()
             .Include(g => g.Categories).ThenInclude(c => c.Category)
             .Include(g => g.Tags).ThenInclude(t => t.Tag)
             .ToListAsync(ct);

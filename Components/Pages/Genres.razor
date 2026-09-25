@@ -37,7 +37,7 @@ else
     <div class="card" style="margin-bottom:14px;">
         <BarChart Id="genreGames" Color="#6ea8ff"
                   Labels="@(rows.Take(16).Select(g => g.Title))"
-                  Values="@(rows.Take(16).Select(g => age == "fresh" ? g.FreshMedianGq : g.OpportunityScore))" />
+                  Values="@(rows.Take(16).Select(ChartValue))" />
     </div>
 
     <div class="card">
@@ -122,6 +122,15 @@ else
     protected override async Task OnInitializedAsync() => snap = await Analytics.BuildAsync();
 
     void Refresh() { }
+
+    double ChartValue(GroupStats genre) => sort switch
+    {
+        "demand" => age == "fresh" ? genre.FreshMedianDemand : genre.AvgDemand,
+        "gq" => age == "fresh" ? genre.FreshMedianGq : genre.MedianGq,
+        "reviews" => genre.MedianReviews,
+        "games" => age == "fresh" ? genre.FreshGames : genre.Games,
+        _ => genre.OpportunityScore
+    };
 
     IEnumerable<GroupStats> VisibleGenres()
     {

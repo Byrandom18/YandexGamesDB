@@ -38,11 +38,11 @@ window.ygCharts = {
                 },
                 scales: {
                     x: {
-                        ticks: { color: '#8b93a7', maxRotation: 0, autoSkip: true },
+                        ticks: { color: '#8b93a7', maxRotation: 45, minRotation: 0, autoSkip: false },
                         grid: { color: 'rgba(255,255,255,.06)' }
                     },
                     y: {
-                        ticks: { color: '#8b93a7' },
+                        ticks: { color: '#8b93a7', autoSkip: false },
                         grid: { color: 'rgba(255,255,255,.06)' }
                     }
                 }

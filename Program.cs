@@ -24,6 +24,7 @@ builder.Services.AddSingleton<YandexCatalogClient>(sp =>
         sp.GetRequiredService<ILogger<YandexCatalogClient>>()));
 builder.Services.AddSingleton<SyncCoordinator>();
 builder.Services.AddSingleton<CatalogSyncService>();
+builder.Services.AddSingleton<AnalyticsCache>();
 builder.Services.AddScoped<AnalyticsEngine>();
 
 var app = builder.Build();
@@ -47,5 +48,18 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+_ = Task.Run(async () =>
+{
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<AnalyticsEngine>().BuildAsync();
+    }
+    catch
+    {
+        // Первый заход пересчитает снимок, если прогрев не удался.
+    }
+});
 
 app.Run();

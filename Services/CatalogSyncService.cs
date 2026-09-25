@@ -8,6 +8,7 @@ public class CatalogSyncService(
     IDbContextFactory<AppDbContext> dbFactory,
     YandexCatalogClient catalog,
     SyncCoordinator coordinator,
+    AnalyticsCache analytics,
     ILogger<CatalogSyncService> logger)
 {
     private const int EnrichBatchSize = 80;
@@ -66,6 +67,7 @@ public class CatalogSyncService(
             done.GamesCollected = coordinator.Progress.GamesCollected;
             done.GamesEnriched = coordinator.Progress.GamesEnriched;
             await db.SaveChangesAsync(CancellationToken.None);
+            analytics.Invalidate();
             coordinator.Complete();
         }
         catch (OperationCanceledException)
@@ -75,6 +77,7 @@ public class CatalogSyncService(
             cancelled.Status = "cancelled";
             cancelled.Error = "Остановлено пользователем";
             await db.SaveChangesAsync(CancellationToken.None);
+            analytics.Invalidate();
             coordinator.Complete("Сбор остановлен.");
         }
         catch (Exception ex)
@@ -85,6 +88,7 @@ public class CatalogSyncService(
             failed.Status = "error";
             failed.Error = ex.Message;
             await db.SaveChangesAsync(CancellationToken.None);
+            analytics.Invalidate();
             coordinator.Complete(ex.Message);
         }
     }
